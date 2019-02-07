@@ -100,8 +100,8 @@ var UIController = (function(){
 
   var DOMstrings = {
     inputType:'.add__type',
-    description: '.add__description',
-    value:'.add__value', 
+    inputDescription: '.add__description',
+    inputValue:'.add__value', 
     addBtn: '.add__btn',
     incomeContainer: '.income__list',
     expenseContainer: '.expenses__list'
@@ -113,8 +113,8 @@ var UIController = (function(){
     getInput: function(){
       return{
         type : document.querySelector(DOMstrings.inputType).value, //will be inc or exp
-        description : document.querySelector(DOMstrings.description).value,
-        value : document.querySelector(DOMstrings.value).value,
+        description : document.querySelector(DOMstrings.inputDescription).value,
+        value : document.querySelector(DOMstrings.inputValue).value,
       };
     }, 
 
@@ -147,6 +147,27 @@ var UIController = (function(){
         //we use adjacent before end so that it will append directly after the last element that is rendered:
         document.querySelector(element).insertAdjacentHTML('beforeend', newHtml); //we want the newHtml because it will aready have the data added
 
+
+    },
+
+    // public method to clear feilds
+    clearFields:function(){
+      var fields, fieldsArr;
+      
+      //querySelectorAll returns a list not an array, so we need to convert it:
+      fields = document.querySelectorAll(DOMstrings.inputDescription + ', ' + DOMstrings.inputValue);
+
+      //because we know slice is part of the prototype under an Array
+      fieldsArr = Array.prototype.slice.call(fields);
+
+      fieldsArr.forEach(function(currentEl, indexNum, array){
+        currentEl.value = '';
+        // indexNum.value = '';
+
+      });
+
+      //should set focus (focus() method) of curser on first input again:
+      fieldsArr[0].focus();
 
     },
 
@@ -189,9 +210,13 @@ var controller = (function(budgetCtrl, UICtrl){
     // 3. Add the item to the UI
     UICtrl.addListItem(newItem, input.type);
 
-    // 4. Calc budget
+    // 4 clear fields
+    UICtrl.clearFields();
 
-    // 5. Display budget on the UI
+    // 5. Calc budget
+
+
+    // 6. Display budget on the UI
 
     
   };
