@@ -46,6 +46,18 @@ var budgetController = (function(){
     this.value = value;
   };
 
+  //private function for calc total
+  var calcutateTotal = function (type) {
+    var sum =0;
+
+    data.allItems[type].forEach(function(cur){
+      sum += cur.value; //cur either the inc or the exp obj...on lines 39||46 
+    })
+
+    data.totals[type] = sum;
+  };
+
+
   //data structure: (not accessable from the outside)
   var data ={
     allItems:{
@@ -54,8 +66,10 @@ var budgetController = (function(){
     },
     totals:{
       exp: 0,
-      inc:0
-    }
+      inc: 0
+    }, 
+    budget: 0, 
+    percentage: -1 //-1 is something that doesnt exist yet so it wont display. 
   };
 
   return {
@@ -83,6 +97,35 @@ var budgetController = (function(){
       //return the new element
       return newItem;
     },
+    
+    // this will calc total sum of inc & exp for the budget & the %
+    calculateBudget: function(){
+      // calc total inc & exp
+      calcutateTotal('exp');
+      calcutateTotal('inc');
+
+      // calc budget: inc - exp
+      data.budget= data.totals.inc - data.totals.exp;
+
+      //calc % of inc that is spent with the exp
+        //we use Math.round to round the % 
+      if (data.totals.inc > 0){data.percentage = Math.round((data.totals.exp / data.totals.inc) * 100);
+      } else{
+        data.percentage = -1; //or nonexistant 
+      }
+
+    },
+
+    //this only does one thing ... get the budget
+    getBudget: function(){
+      return{
+        // we will return 4 things: budget, total inc, total exp, 
+        budget: data.budget, 
+        totalInc: data.totals.inc,
+        totalExp: data.totals.exp, 
+        percentage: data.percentage
+      }
+    },
 
     // this method is only for testing in the console by: 'budgetController.testing()' you will see what was added to the dataStructure
     testing: function(){
@@ -104,7 +147,11 @@ var UIController = (function(){
     inputValue:'.add__value', 
     addBtn: '.add__btn',
     incomeContainer: '.income__list',
-    expenseContainer: '.expenses__list'
+    expenseContainer: '.expenses__list',
+    budgetLabel: '.budget__value',
+    incomeLabel: '.budget__income--value',
+    expenseLabel: '.budget__expenses--value', 
+    percentageLabel: '.budget__expenses--percentage'
   }
   
   // want to make it publicly accessable for the controller module so we place
@@ -114,7 +161,7 @@ var UIController = (function(){
       return{
         type : document.querySelector(DOMstrings.inputType).value, //will be inc or exp
         description : document.querySelector(DOMstrings.inputDescription).value,
-        value : document.querySelector(DOMstrings.inputValue).value,
+        value : parseFloat(document.querySelector(DOMstrings.inputValue).value), //added parseFloat to make it a number not a string.
       };
     }, 
 
@@ -171,6 +218,14 @@ var UIController = (function(){
 
     },
 
+    displayBudget: function (obj){
+      document.querySelector(DOMstrings.budgetLabel).textContent = obj.budget;
+      document.querySelector(DOMstrings.incomeLabel).textContent = obj.totalInc;
+      document.querySelector(DOMstrings.expenseLabel).textContent = obj.totalExp;
+      document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage;
+    },
+
+
     getDOMstrings: function(){
       return DOMstrings;
     }
@@ -199,31 +254,49 @@ var controller = (function(budgetCtrl, UICtrl){
     });
   }
 
+  var updateBudget = function (){
+
+    // 1. Calc budget
+    budgetCtrl.calculateBudget();
+
+    // 2. method returning the budget
+    var budget = budgetController.getBudget(); //returns 4 items.
+    // 3. Display budget on the UI
+    UICtrl.displayBudget(budget); //obj is from getBudget method
+  }
+
   var ctrlAddItem = function(){
     var input, newItem;
     // 1. Get the filed input data
     input = UICtrl.getInput();
 
-    // 2. add the item to the budget controller
-    newItem = budgetCtrl.addItem(input.type, input.description, input.value);
+    //discription shouldnt be empty && the num should actually be a num in the value input && val > 0
+    if (input.description !== "" && !isNaN(input.value) && input.value > 0){
+      // 2. add the item to the budget controller
+      newItem = budgetCtrl.addItem(input.type, input.description, input.value);
 
-    // 3. Add the item to the UI
-    UICtrl.addListItem(newItem, input.type);
+      // 3. Add the item to the UI
+      UICtrl.addListItem(newItem, input.type);
 
-    // 4 clear fields
-    UICtrl.clearFields();
+      // 4 clear fields
+      UICtrl.clearFields();
 
-    // 5. Calc budget
+      //5. calculate and update budget
+      updateBudget();
+    }
 
-
-    // 6. Display budget on the UI
-
-    
   };
 
   return {
     init: function(){
       console.log('app has started. ');
+      //we want it to start out with everything at zero
+      UICtrl.displayBudget({
+        budget: 0, 
+        totalInc: 0,
+        totalExp: 0, 
+        percentage: -1
+      });
       setupEventListeners(); //only set up when init() is called
     }
   }
