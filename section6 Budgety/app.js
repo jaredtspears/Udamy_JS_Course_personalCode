@@ -44,7 +44,22 @@ var budgetController = (function(){
     this.id = id;
     this.description = description;
     this.value = value;
+    this.percentage = -1; 
   };
+
+  //this calculates:
+  Expense.prototype.calcPercentage = function(totalIncome){
+    if(totalIncome > 0){
+      this.percentage = Math.round((this.value / totalIncome) * 100)
+    }else{
+      this.percentage = -1
+    }
+  };
+
+  //this just returns the calcPercentage
+  Expense.prototype.getPercengate = function(){
+    return this.percentage;
+  }
 
   //private function for calc total
   var calcutateTotal = function (type) {
@@ -98,6 +113,26 @@ var budgetController = (function(){
       return newItem;
     },
     
+    deleteItem: function (type, id){
+      var ids, index;
+          // data.allItems[type][id]; WONT WORK!
+          //id= 6
+          //ids = [12568]
+          //index = 3
+
+      //create new array:
+      ids = data.allItems[type].map(function(current){
+        return current.id;
+      })
+
+      index = ids.indexOf(id);
+
+      if(index !== -1){
+        data.allItems[type].splice(index, 1); // we put 1 because we only want to remove 1 item.
+      }
+    },
+
+
     // this will calc total sum of inc & exp for the budget & the %
     calculateBudget: function(){
       // calc total inc & exp
@@ -113,6 +148,31 @@ var budgetController = (function(){
       } else{
         data.percentage = -1; //or nonexistant 
       }
+
+    },
+
+    calculatePercentages: function (){
+
+      /*
+      a =20
+      b = 10
+      c = 40
+      income = 100
+      a = 20/100 = 20%
+      etc...*/
+
+      data.allItems.exp.forEach(function(cur){
+        cur.calcPercentage(data.totals.inc); //have to pass total inc in so we dont get -1
+      });
+    },
+
+    getPercengates: function(){
+      var allPerc;
+
+      allPerc = data.allItems.exp.map(function(cur){
+        return cur.getPercengate();
+      });
+      return allPerc; //returns this array we just made
 
     },
 
@@ -151,9 +211,28 @@ var UIController = (function(){
     budgetLabel: '.budget__value',
     incomeLabel: '.budget__income--value',
     expenseLabel: '.budget__expenses--value', 
-    percentageLabel: '.budget__expenses--percentage'
-  }
+    percentageLabel: '.budget__expenses--percentage',
+    container: '.container',
+    expensesPercLabel: '.item__percentage'
+  };
   
+  var formatNumber = function(num, type){
+    var numSplit, int, dec, type;
+    num = Math.abs(num);
+    num = num.toFixed(2);
+
+    numSplit = num.split('.');
+    
+    int= numSplit[0];
+    if(int.length > 3){
+      int, int.substr(0,int.length - 3) + ',' + int.substr(int.length - 3, 3); //input 23510, output 23,510
+    }
+
+    dec = numSplit[1];
+    return(type === 'exp' ? '-' : '+') + ' ' + int + '.' + dec;
+  }
+
+
   // want to make it publicly accessable for the controller module so we place
   //it into a object to accessed:
   return {
@@ -173,12 +252,12 @@ var UIController = (function(){
         if (type === 'inc'){
           element = DOMstrings.incomeContainer; //selecting the container element 
 
-          html =   '<div class="item clearfix" id="income-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__delete"> <button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
+          html =   '<div class="item clearfix" id="inc-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__delete"> <button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
 
         }else if(type === 'exp'){
           element = DOMstrings.expenseContainer;
 
-          html = '<div class="item clearfix" id="expense-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__percentage">21%</div><div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
+          html = '<div class="item clearfix" id="exp-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__percentage">21%</div><div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
 
         }
 
@@ -187,7 +266,7 @@ var UIController = (function(){
         //if you look the obj is the budgetController method for Expense or Income ref this.id etc
         newHtml = html.replace('%id%', obj.id);
         newHtml = newHtml.replace('%description%', obj.description); //needs to be on the newHTML not the old one.
-        newHtml = newHtml.replace('%value%', obj.value);
+        newHtml = newHtml.replace('%value%', formatNumber(obj.value, type));
 
       //Insert the HTML into the DOM
 
@@ -195,6 +274,12 @@ var UIController = (function(){
         document.querySelector(element).insertAdjacentHTML('beforeend', newHtml); //we want the newHtml because it will aready have the data added
 
 
+    },
+
+    //using parent ID not just the child id
+    deleteListItem: function(selectorID){
+      var el = document.getElementById(selectorID);
+      el.parentNode.removeChild(el);  
     },
 
     // public method to clear feilds
@@ -219,12 +304,44 @@ var UIController = (function(){
     },
 
     displayBudget: function (obj){
-      document.querySelector(DOMstrings.budgetLabel).textContent = obj.budget;
-      document.querySelector(DOMstrings.incomeLabel).textContent = obj.totalInc;
-      document.querySelector(DOMstrings.expenseLabel).textContent = obj.totalExp;
-      document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage;
+      var type;
+      obj.budget > 0 ? type = 'inc' : type = 'exp';
+
+      document.querySelector(DOMstrings.budgetLabel).textContent = formatNumber(obj.budget, type);
+      document.querySelector(DOMstrings.incomeLabel).textContent = formatNumber(obj.totalInc, 'inc');
+      document.querySelector(DOMstrings.expenseLabel).textContent = formatNumber(obj.totalExp, 'exp');
+      // document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage;
+
+      //had to ad this so that the percentage text '%' would appear at the top. 
+      if(obj.percentage > 0){
+        document.querySelector(DOMstrings.percentageLabel).textContent = obj.percentage +'%';
+      }else{
+        document.querySelector(DOMstrings.percentageLabel).textContent = '---';
+      }
     },
 
+    displayPercentages: function(percentages){
+
+      var fields;
+      fields = document.querySelectorAll(DOMstrings.expensesPercLabel); //this returns a nodeList
+
+      //THIS IS REUSABLE CODE for ANY APP!!!
+      var nodeListForEach = function(list, callback){
+        for(var i =0; i < list.length; i++){
+          callback(list[i], i); //current is the list, and i is the index
+        }
+      };
+
+      nodeListForEach(fields, function(current, index){
+
+        if(percentages[index] > 0 ){
+          current.textContent = percentages[index] + '%'; 
+        } else{
+          current.textContent = '---';
+        }
+      });
+
+    },
 
     getDOMstrings: function(){
       return DOMstrings;
@@ -252,7 +369,24 @@ var controller = (function(budgetCtrl, UICtrl){
         ctrlAddItem();
       }
     });
-  }
+
+    //using knowledge of bubbling we add listen to container element only because it is the parent 
+    document.querySelector(DOM.container).addEventListener('click', ctrlDeleteItem);
+
+  };
+
+  var updatePercentages = function(){
+    //1. calc %s
+    budgetCtrl.calculatePercentages();
+
+    //2. read %s from budget controller
+    var percentages = budgetCtrl.getPercengates();
+
+    //3. update UI with new %s
+      UICtrl.displayPercentages(percentages);
+
+
+  };
 
   var updateBudget = function (){
 
@@ -283,6 +417,42 @@ var controller = (function(budgetCtrl, UICtrl){
 
       //5. calculate and update budget
       updateBudget();
+
+      //6. calc and update %
+      updatePercentages();
+    }
+
+  };
+
+  //this is the method for which the bubling of the event is called for the deletion 
+  //we use event because we used it in the addEventListener()
+  var ctrlDeleteItem = function (event){
+
+    //moving up from the child of the <i></i> up to the most relevent parent node:
+    // console.log(event.target.parentNode.parentNode.parentNode.parentNode.id);
+    var itemID, splitID, type, ID;
+
+    // not super ideal hard coding like this but it works for this app:
+    itemID = event.target.parentNode.parentNode.parentNode.parentNode.id;
+
+    if(itemID){
+
+      //inc-1 will be split up into ['inc', '1']; 
+      splitID = itemID.split('-');
+      type = splitID[0]; //the first in the newly create array is the type
+      ID = parseInt(splitID[1]);   //the second or index 1 is the ID of the array | need to change from a string to a number
+      
+      //1. delete the item form the Data Structure:
+      budgetCtrl.deleteItem(type, ID);
+
+      //2. then delete item from the UI
+      UICtrl.deleteListItem(itemID);
+
+      //3. update and show the new budget
+      updateBudget(); //same as in CtrlAddItem()
+      
+      //4. calc and update %
+      updatePercentages();
     }
 
   };
@@ -310,3 +480,13 @@ controller.init(); //without this line nothing will ever happen
 
 
 
+// ======area below is for additional notes:=======================
+//===========================================================
+
+/*
+EVENT BUBBLEING: when even is triggered by element then the exact same event is triggered on all parent elements one at a time... so if you have a P inside a Section inside a Main component  all the way up to the Root... so the triggering is going up the line. 
+  - the place where the event is triggered is called the Target element
+  - event delegation- if we know  where the event is fired we can attached event handler to the parent element and wait for trigger to bubble up to the parent from the child element.
+
+
+*/
