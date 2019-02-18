@@ -66,7 +66,7 @@ var budgetController = (function(){
     var sum =0;
 
     data.allItems[type].forEach(function(cur){
-      sum += cur.value; //cur either the inc or the exp obj...on lines 39||46 
+      sum += cur.value; //cur either the inc or the exp obj...
     })
 
     data.totals[type] = sum;
@@ -213,25 +213,37 @@ var UIController = (function(){
     expenseLabel: '.budget__expenses--value', 
     percentageLabel: '.budget__expenses--percentage',
     container: '.container',
-    expensesPercLabel: '.item__percentage'
+    expensesPercLabel: '.item__percentage',
+    dateLabel: '.budget__title--month'
   };
   
   var formatNumber = function(num, type){
     var numSplit, int, dec, type;
-    num = Math.abs(num);
-    num = num.toFixed(2);
+    num = Math.abs(num); //the absolute number is stored inside the num var
+    num = num.toFixed(2); //method of the num prototype
 
     numSplit = num.split('.');
     
+    //the first part of the arary or the integer [int, '.', decimal]
     int= numSplit[0];
     if(int.length > 3){
+      //substring method only returns the part of the string that we want.
+      //substring(index0 is where we start, then span the string to another paramiter)
       int, int.substr(0,int.length - 3) + ',' + int.substr(int.length - 3, 3); //input 23510, output 23,510
     }
 
     dec = numSplit[1];
+    // what is inside the parenthesis is going to be evaluated first. 
     return(type === 'exp' ? '-' : '+') + ' ' + int + '.' + dec;
-  }
+  };
 
+   //THIS IS REUSABLE CODE for ANY APP, thus it is taken out of the displayPercentage so we can use it for css changes !!!
+   //it is still a private method
+   var nodeListForEach = function(list, callback){
+    for(var i =0; i < list.length; i++){
+      callback(list[i], i); //current is the list, and i is the index
+    }
+  };
 
   // want to make it publicly accessable for the controller module so we place
   //it into a object to accessed:
@@ -258,11 +270,9 @@ var UIController = (function(){
           element = DOMstrings.expenseContainer;
 
           html = '<div class="item clearfix" id="exp-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__percentage">21%</div><div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
-
         }
 
-      //Replace the placeholder text with some actual data:
-
+      //Replace the placeholder text with some actual data
         //if you look the obj is the budgetController method for Expense or Income ref this.id etc
         newHtml = html.replace('%id%', obj.id);
         newHtml = newHtml.replace('%description%', obj.description); //needs to be on the newHTML not the old one.
@@ -272,7 +282,6 @@ var UIController = (function(){
 
         //we use adjacent before end so that it will append directly after the last element that is rendered:
         document.querySelector(element).insertAdjacentHTML('beforeend', newHtml); //we want the newHtml because it will aready have the data added
-
 
     },
 
@@ -305,7 +314,7 @@ var UIController = (function(){
 
     displayBudget: function (obj){
       var type;
-      obj.budget > 0 ? type = 'inc' : type = 'exp';
+      obj.budget > 0 ? type = 'inc' : type = 'exp'; //if greater than 0 type will be inc else it will be exp
 
       document.querySelector(DOMstrings.budgetLabel).textContent = formatNumber(obj.budget, type);
       document.querySelector(DOMstrings.incomeLabel).textContent = formatNumber(obj.totalInc, 'inc');
@@ -325,13 +334,6 @@ var UIController = (function(){
       var fields;
       fields = document.querySelectorAll(DOMstrings.expensesPercLabel); //this returns a nodeList
 
-      //THIS IS REUSABLE CODE for ANY APP!!!
-      var nodeListForEach = function(list, callback){
-        for(var i =0; i < list.length; i++){
-          callback(list[i], i); //current is the list, and i is the index
-        }
-      };
-
       nodeListForEach(fields, function(current, index){
 
         if(percentages[index] > 0 ){
@@ -341,6 +343,42 @@ var UIController = (function(){
         }
       });
 
+    },
+
+    displayMonth: function() {
+      var now, year, month;
+
+      now = new Date();
+
+      // wanted to add day but it was not working
+      // days = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31' ];
+      // var day = now.getDay();
+
+      //better solution below:
+      // months = [ 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']; // then you woul have to hve months[month] instead of just month
+      // month = now.getMonth();
+
+      year = now.getFullYear();
+      month = now.toLocaleDateString('en-us', {month:'long', day:'numeric'}); //https://stackoverflow.com/questions/3552461/how-to-format-a-javascript-date/34015511#34015511
+      document.querySelector(DOMstrings.dateLabel).textContent = month + ' ' + year;
+
+    },
+
+    changedType: function(){
+
+     var fields = document.querySelectorAll(
+       DOMstrings.inputType + ',' + 
+       DOMstrings.inputDescription + ',' +
+       DOMstrings.inputValue
+       );
+
+      nodeListForEach(fields, function(cur){
+        cur.classList.toggle('red-focus');
+      })
+
+      //he had changed addBtn to inputBtn 
+      document.querySelector(DOMstrings.addBtn).classList.toggle('red');
+      
     },
 
     getDOMstrings: function(){
@@ -373,6 +411,7 @@ var controller = (function(budgetCtrl, UICtrl){
     //using knowledge of bubbling we add listen to container element only because it is the parent 
     document.querySelector(DOM.container).addEventListener('click', ctrlDeleteItem);
 
+    document.querySelector(DOM.inputType).addEventListener('change', UICtrl.changedType);
   };
 
   var updatePercentages = function(){
@@ -460,6 +499,7 @@ var controller = (function(budgetCtrl, UICtrl){
   return {
     init: function(){
       console.log('app has started. ');
+      UICtrl.displayMonth();
       //we want it to start out with everything at zero
       UICtrl.displayBudget({
         budget: 0, 
